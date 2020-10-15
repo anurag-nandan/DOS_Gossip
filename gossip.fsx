@@ -13,9 +13,39 @@ open Akka.Actor
 let mutable algorithm = fsi.CommandLineArgs.[3]
 let mutable topology = fsi.CommandLineArgs.[2]
 let mutable n_nodes= fsi.CommandLineArgs.[1]|>int
-
-let mutable matrix : int[,] = array2D [ [  ]; [ ] ]
+let mutable matrix_dim = n_nodes
+//let mutable matrix : int[,] = array2D [ [  ]; [ ] ]
 let mutable thread_count = 0
+
+
+let isPerfect (N:float) = 
+    if (sqrt(N)-floor(sqrt(N))) = 0.0 then
+        true
+    else
+        false
+
+if topology.Equals("2D") || topology.Equals("imp2D") then
+    if isPerfect(matrix_dim|>float)=false then
+		matrix_dim <- matrix_dim+1
+		let mutable continueLooping = true
+		while continueLooping do
+			if isPerfect(matrix_dim|>float) then
+				continueLooping <- false
+			else
+				matrix_dim <- matrix_dim+1
+
+matrix_dim <- (Math.Sqrt(matrix_dim|>float))|>int
+let matrix = Array2D.zeroCreate<int> matrix_dim matrix_dim
+let mutable count = 1
+for i = 0 to matrix_dim-1 do
+	for j = 0 to matrix_dim-1 do
+		if count <= n_nodes then
+			matrix.[i,j] <- count
+			count <- count + 1
+
+
+
+
 
 let mutable flag = true
 let mutable flag2 = false
@@ -38,6 +68,7 @@ let sub_actor system name=
     let mutable index = 0
     let mutable rumor_count = 0
     let mutable neighbors = []
+    let mutable nbrimp2D = []
     let random = System.Random()
     //for push sum
     let mutable s = my_id|>float32 
@@ -61,12 +92,53 @@ let sub_actor system name=
                                                 neighbors <- [2]
                                         else if my_id = n_nodes then
                                             neighbors <- [n_nodes-1]
-    if topology.Equals("2D", StringComparison.OrdinalIgnoreCase) then
-                                        
-                                        printfn "rth"
-                                        //neighbors <- [my2DArray[my_id-1][j], my2DArray[my_id+1][j], my2DArray[i][my_id-1], my2DArray[i][my_id+1]]
-    if topology.Equals("imp2D", StringComparison.OrdinalIgnoreCase) then
-                                        printfn "dcc"
+    if topology.Equals("2D", StringComparison.OrdinalIgnoreCase) || topology.Equals("imp2D", StringComparison.OrdinalIgnoreCase) then
+                                        if (my_id % matrix_dim) = 0 then //last column
+                                            let i = (my_id/matrix_dim)-1
+                                            let j = matrix_dim-1
+                                            if my_id = n_nodes then
+                                                neighbors <- [matrix.[i,j-1]; matrix.[i-1,j]]
+                                            else if my_id = matrix_dim then
+                                                if my_id = n_nodes then
+                                                    neighbors <-  [matrix.[i,j-1]]
+                                                else
+                                                    neighbors <- [matrix.[i,j-1]; matrix.[i+1,j]]
+                                            else
+                                                neighbors <- [matrix.[i,j-1]; matrix.[i-1,j]; matrix.[i+1,j]]
+                                        else if (my_id % matrix_dim) = 1 then //first column
+                                            let i = (my_id/matrix_dim)
+                                            let j = (my_id % matrix_dim)-1
+                                            if my_id = 1 then
+                                                if my_id <> n_nodes then
+                                                    neighbors <- [matrix.[i+1,j]; matrix.[i,j+1]]
+                                            else if my_id = n_nodes then
+                                                neighbors <- [matrix.[i-1,j]]
+                                            else
+                                                neighbors <- [matrix.[i-1,j]; matrix.[i+1,j]; matrix.[i,j+1]]
+                                            let list1 = List.filter (fun x -> x<>0) neighbors
+                                            neighbors <- list1
+                                        else if my_id < matrix_dim then //first row
+                                            let i = (my_id/matrix_dim)
+                                            let j = (my_id % matrix_dim)-1
+                                            neighbors <- [matrix.[i,j-1];matrix.[i,j+1];matrix.[i+1,j]]
+                                            let list1 = List.filter (fun x -> x<>0) neighbors
+                                            neighbors <- list1
+                                        else
+                                            let i = (my_id/matrix_dim)
+                                            let j = (my_id % matrix_dim)-1
+                                            if i = matrix_dim-1 then
+                                                neighbors <- [matrix.[i-1,j]; matrix.[i,j+1]; matrix.[i,j-1]]
+                                            else
+                                                neighbors <- [matrix.[i-1,j]; matrix.[i+1,j]; matrix.[i,j+1]; matrix.[i,j-1]]
+                                            let list1 = List.filter (fun x -> x<>0) neighbors
+                                            neighbors <- list1
+                                        if topology.Equals("imp2D", StringComparison.OrdinalIgnoreCase) then
+                                            let list2 = List.sort neighbors
+                                            let listn = [1 .. n_nodes]
+                                            nbrimp2D <- listn
+                                            let mutable k = 0
+                                            for k = 0 to list2.Length-1 do
+                                                nbrimp2D <- List.filter (fun x -> x<>list2.[k]) nbrimp2D
     spawn system name <|fun mailbox ->
                             let rec loop()=
                                 actor{
@@ -174,15 +246,11 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
             }
         loop()
  
-let isPerfect (N:float) = 
-        if (sqrt(N)-floor(sqrt(N))) = 0.0 then
-            true
-        else
-            false
 
 
-let mutable matrix_dim = n_nodes
-//for 2D finding the pefect square > or = no. of nodes
+
+
+
 // if topology.Equals("2D") || topology.Equals("imp2D") then
 //     if isPerfect(matrix_dim|>float)=false then
 //     		matrix_dim <- matrix_dim+1
@@ -211,3 +279,6 @@ while(flag) do
     printf ""
 
 printfn "END REACHED:%f" stopWatch.Elapsed.TotalMilliseconds
+
+
+
