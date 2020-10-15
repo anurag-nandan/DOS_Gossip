@@ -18,6 +18,8 @@ let mutable matrix : int[,] = array2D [ [  ]; [ ] ]
 let mutable thread_count = 0
 
 let mutable flag = true
+let mutable flag2 = false
+let mutable stopWatch = System.Diagnostics.Stopwatch()
 type ActorMsg =
     | Done
     | Start
@@ -53,7 +55,10 @@ let sub_actor system name=
                                         if my_id > 1 && my_id < n_nodes then
                                             neighbors <- [my_id-1 .. my_id+1]
                                         else if my_id = 1 then
-                                            neighbors <- [2]
+                                            if n_nodes = 1 then
+                                                neighbors <- []
+                                            else
+                                                neighbors <- [2]
                                         else if my_id = n_nodes then
                                             neighbors <- [n_nodes-1]
     if topology.Equals("2D", StringComparison.OrdinalIgnoreCase) then
@@ -80,10 +85,16 @@ let sub_actor system name=
                                                     M_Actor.Tell(Done)
                                                 else if rumor_count<10 then
                                                     //printfn "t:%d" my_id
-                                                    index <- random.Next(neighbors.Length)
-                                                    let str = "akka://MainActor/user/M_Actor/" + (neighbors.[index]|>string)
-                                                    let sel_Actor = system.ActorSelection(str)
-                                                    sel_Actor.Tell(Rumor)                                                             
+                                                    if neighbors.Length > 0 then
+                                                        index <- random.Next(neighbors.Length)
+                                                        let str = "akka://MainActor/user/M_Actor/" + (neighbors.[index]|>string)
+                                                        let sel_Actor = system.ActorSelection(str)
+                                                        sel_Actor.Tell(Rumor)     
+                                                    else if neighbors.Length = 0 then
+                                                        let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
+                                                        M_Actor.Tell(Done)
+                                                        stop_transmit <- true   
+                                                        flag2 <- true                                                    
                                     |Ratio (a,b) -> 
                                             if stop_transmit then
                                                 mailbox.Sender().Tell(Terminate my_id)
@@ -125,6 +136,11 @@ let sub_actor system name=
                                                 let str = "akka://MainActor/user/M_Actor/" + (neighbors.[index]|>string)
                                                 let sel_Actor = system.ActorSelection(str)
                                                 sel_Actor.Tell(Rumor)
+                                            else if neighbors.Length = 0 then
+                                                let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
+                                                M_Actor.Tell(Done)
+                                                stop_transmit <- true
+                                                flag2 <- true
                                     return! loop()
 
                                 }
@@ -138,7 +154,7 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
         
         let random = System.Random()
         let mutable index = random.Next(Actor.Length)
-        let stopWatch = System.Diagnostics.Stopwatch.StartNew()
+        stopWatch <- System.Diagnostics.Stopwatch.StartNew()
         printfn "%f" stopWatch.Elapsed.TotalMilliseconds  
         let rec loop()=
             actor{
@@ -151,9 +167,8 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
                         Actor.[index].Tell(Ratio (0|>float32,0|>float32))
                 |Done -> 
                      thread_count <- thread_count + 1 
-                     printfn "t_count:%d" thread_count
-                     if thread_count = n_nodes-1 then
-                        printfn "END REACHED:%f" stopWatch.Elapsed.TotalMilliseconds                        
+                     //printfn "t_count:%d" thread_count
+                     if thread_count = n_nodes-1 || flag2 then                        
                         flag <- false
                 return! loop()
             }
@@ -194,3 +209,5 @@ let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
 M_Actor.Tell(Start);
 while(flag) do 
     printf ""
+
+printfn "END REACHED:%f" stopWatch.Elapsed.TotalMilliseconds
