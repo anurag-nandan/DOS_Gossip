@@ -19,6 +19,7 @@ type ActorMsg =
 //enum for Sub Actor message
 type ActorMsg2 =
     | Rumor of string
+    | Terminate of int
     | Ratio of float32*float32
 
 let system = ActorSystem.Create("MainActor")
@@ -61,29 +62,18 @@ let sub_actor system name=
                                     let! message = mailbox.Receive()
                                     match message with
                                     |Rumor r_msg->      
-                                           if algorithm.Equals("gossip", StringComparison.OrdinalIgnoreCase) then
-                                                if r_msg = start_rumor then
-                                                        rumor_count<-rumor_count+1
-                                                 
-                                                if rumor_count = 10 then
-                                                    let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
-                                                    M_Actor.Tell(Done)
-                                                if rumor_count<10 then
-                                                    index <- random.Next(neighbors.Length)
-                                                    let str = "akka://MainActor/user/M_Actor/" + (neighbors.[index]|>string)
-                                                    let sel_Actor = system.ActorSelection(str)
-                                                    sel_Actor.Tell(Rumor r_msg)
-                                                    
-                                           if algorithm.Equals("pushsum", StringComparison.OrdinalIgnoreCase) then     
-                                               if r_msg = start_rumor then
+                                            if r_msg = start_rumor then
                                                 rumor_count<-rumor_count+1
+                                             
+                                            if rumor_count = 10 then
+                                                mailbox.Sender().Tell(Terminate my_id)
+                                                let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
+                                                M_Actor.Tell(Done)
+                                            else if rumor_count<10 then
                                                 index <- random.Next(neighbors.Length)
                                                 let str = "akka://MainActor/user/M_Actor/" + (neighbors.[index]|>string)
                                                 let sel_Actor = system.ActorSelection(str)
-                                                currSumEstimate <- s/w
-                                                previous <- currSumEstimate
-                                                let x = 2.0f
-                                                sel_Actor.Tell(Ratio (s/x, w/x))                                                             
+                                                sel_Actor.Tell(Rumor r_msg)                                                             
                                     |Ratio (a,b) -> 
                                             s <- s + a
                                             w <- w + b
@@ -99,7 +89,6 @@ let sub_actor system name=
                                             
                                             if term_count < 3 then
                                                 previous <- currSumEstimate
-                                                
                                                 index <- random.Next(neighbors.Length)
                                                 let str = "akka://MainActor/user/M_Actor/" + (neighbors.[index]|>string)
                                                 let sel_Actor = system.ActorSelection(str)
@@ -107,9 +96,12 @@ let sub_actor system name=
                                                 sel_Actor.Tell(Ratio (s/x, w/x))  
                                             else
                                                //terminate
+                                               mailbox.Sender().Tell(Terminate my_id)
                                                let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
                                                M_Actor.Tell(Done)
-                                                        
+                                    |Terminate item ->       
+                                            let newlist = List.filter (fun x -> x<>item) neighbors
+                                            neighbors <- newlist            
                                     return! loop()
 
                                 }
@@ -123,16 +115,20 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
         
         let random = System.Random()
         let mutable index = random.Next(Actor.Length)
+        let stopWatch = System.Diagnostics.Stopwatch.StartNew()
         let rec loop()=
             actor{
                 let! message = mailbox.Receive()
                 match message with
                 |Start-> //schedule initial set of sub problems to sub actors
-                     Actor.[index].Tell(Rumor start_rumor)                              
-                     
+                    if algorithm.Equals("gossip", StringComparison.OrdinalIgnoreCase) then
+                        Actor.[index].Tell(Rumor start_rumor)
+                    else if algorithm.Equals("push-sum", StringComparison.OrdinalIgnoreCase) then                              
+                        Actor.[index].Tell(Ratio (0|>float32,0|>float32))
                 |Done -> 
                      thread_count <- thread_count + 1 
                      if thread_count = n_nodes then
+                        printfn "%f" stopWatch.Elapsed.TotalMilliseconds                        
                         flag <- 2
                 return! loop()
             }
@@ -151,7 +147,7 @@ let main argv =
     topology <- argv[2]
     let mutable matrix_dim = n_nodes
     //for 2D finding the pefect square > or = no. of nodes
-    if topology.Equals("2D") then
+    if topology.Equals("2D") || topology.Equals("imp2D") then
         if isPerfect(matrix_dim|>float)=false then
             matrix_dim <- matrix_dim+1
             let mutable continueLooping = true
@@ -163,10 +159,12 @@ let main argv =
         matrix_dim <- (Math.Sqrt(matrix_dim|>float))|>int
         let abc = Array2D.zeroCreate<int> matrix_dim matrix_dim
         let mutable count = 1
-        for i = 0 to n_nodes-1 do
-            for j = 0 to n_nodes-1 do
-                abc.[i,j] <- count
-                
+        for i = 0 to matrix_dim-1 do
+            for j = 0 to matrix_dim-1 do
+                if count <= n_nodes then
+                    abc.[i,j] <- count
+                    count <- count + 1
+
         matrix <- abc
       
 
@@ -174,7 +172,8 @@ let main argv =
     let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
     M_Actor.Tell(Start)
 
+    
     while(flag=0) do
-
+        flag <- flag
    
     0 // return an integer exit code
