@@ -233,7 +233,6 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
                         if x > 0.40 then
                             flag2 <- true
                         else if x < 0.40 then
-                            index <- random.Next(Actor.Length)
                             if algorithm.Equals("gossip", StringComparison.OrdinalIgnoreCase) then
                                     Actor.[vl].Tell(Rumor)
                             else if algorithm.Equals("push-sum", StringComparison.OrdinalIgnoreCase) then                              
@@ -242,19 +241,17 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
                         if x > 0.85 then
                             flag2 <- true
                      if topology.Equals("2D", StringComparison.OrdinalIgnoreCase) then
-                        if x > 0.40 then
+                        if x > 0.50 then
                             flag2 <- true
-                        else if x < 0.40 then
-                            index <- random.Next(Actor.Length)
+                        else if x < 0.50 then
                             if algorithm.Equals("gossip", StringComparison.OrdinalIgnoreCase) then
                                     Actor.[vl].Tell(Rumor)
                             else if algorithm.Equals("push-sum", StringComparison.OrdinalIgnoreCase) then                              
                                     Actor.[vl].Tell(Ratio (0|>float32,0|>float32))
                      if topology.Equals("imp2D", StringComparison.OrdinalIgnoreCase) then
-                        if x > 0.40 then
+                        if x > 0.70 then
                             flag2 <- true
-                        else if x < 0.40 then
-                            index <- random.Next(Actor.Length)
+                        else if x < 0.70 then
                             if algorithm.Equals("gossip", StringComparison.OrdinalIgnoreCase) then
                                     Actor.[vl].Tell(Rumor)
                             else if algorithm.Equals("push-sum", StringComparison.OrdinalIgnoreCase) then                              
