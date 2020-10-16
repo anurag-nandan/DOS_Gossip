@@ -25,26 +25,23 @@ let isPerfect (N:float) =
         false
 
 if topology.Equals("2D") || topology.Equals("imp2D") then
-    if isPerfect(matrix_dim|>float)=false then
-		matrix_dim <- matrix_dim+1
-		let mutable continueLooping = true
-		while continueLooping do
-			if isPerfect(matrix_dim|>float) then
-				continueLooping <- false
-			else
-				matrix_dim <- matrix_dim+1
+                      if isPerfect((matrix_dim|>float))=false then
+                                         matrix_dim <- matrix_dim+1
+                                         let mutable continueLooping = true
+                                         while continueLooping do
+                                            if isPerfect((matrix_dim|>float)) then
+                                                continueLooping <- false
+                                            else
+                                                matrix_dim <- matrix_dim+1
 
 matrix_dim <- (Math.Sqrt(matrix_dim|>float))|>int
 let matrix = Array2D.zeroCreate<int> matrix_dim matrix_dim
 let mutable count = 1
 for i = 0 to matrix_dim-1 do
-	for j = 0 to matrix_dim-1 do
-		if count <= n_nodes then
-			matrix.[i,j] <- count
-			count <- count + 1
-
-
-
+   for j = 0 to matrix_dim-1 do
+         if count <= n_nodes then
+               matrix.[i,j] <- count
+               count <- count + 1
 
 
 let mutable flag = true
@@ -93,52 +90,30 @@ let sub_actor system name=
                                         else if my_id = n_nodes then
                                             neighbors <- [n_nodes-1]
     if topology.Equals("2D", StringComparison.OrdinalIgnoreCase) || topology.Equals("imp2D", StringComparison.OrdinalIgnoreCase) then
-                                        if (my_id % matrix_dim) = 0 then //last column
-                                            let i = (my_id/matrix_dim)-1
-                                            let j = matrix_dim-1
-                                            if my_id = n_nodes then
-                                                neighbors <- [matrix.[i,j-1]; matrix.[i-1,j]]
-                                            else if my_id = matrix_dim then
-                                                if my_id = n_nodes then
-                                                    neighbors <-  [matrix.[i,j-1]]
-                                                else
-                                                    neighbors <- [matrix.[i,j-1]; matrix.[i+1,j]]
-                                            else
-                                                neighbors <- [matrix.[i,j-1]; matrix.[i-1,j]; matrix.[i+1,j]]
-                                        else if (my_id % matrix_dim) = 1 then //first column
-                                            let i = (my_id/matrix_dim)
-                                            let j = (my_id % matrix_dim)-1
-                                            if my_id = 1 then
-                                                if my_id <> n_nodes then
-                                                    neighbors <- [matrix.[i+1,j]; matrix.[i,j+1]]
-                                            else if my_id = n_nodes then
-                                                neighbors <- [matrix.[i-1,j]]
-                                            else
-                                                neighbors <- [matrix.[i-1,j]; matrix.[i+1,j]; matrix.[i,j+1]]
-                                            let list1 = List.filter (fun x -> x<>0) neighbors
-                                            neighbors <- list1
-                                        else if my_id < matrix_dim then //first row
-                                            let i = (my_id/matrix_dim)
-                                            let j = (my_id % matrix_dim)-1
-                                            neighbors <- [matrix.[i,j-1];matrix.[i,j+1];matrix.[i+1,j]]
-                                            let list1 = List.filter (fun x -> x<>0) neighbors
-                                            neighbors <- list1
-                                        else
-                                            let i = (my_id/matrix_dim)
-                                            let j = (my_id % matrix_dim)-1
-                                            if i = matrix_dim-1 then
-                                                neighbors <- [matrix.[i-1,j]; matrix.[i,j+1]; matrix.[i,j-1]]
-                                            else
-                                                neighbors <- [matrix.[i-1,j]; matrix.[i+1,j]; matrix.[i,j+1]; matrix.[i,j-1]]
-                                            let list1 = List.filter (fun x -> x<>0) neighbors
-                                            neighbors <- list1
+                                        if (my_id%matrix_dim)<>0 then
+                                            if my_id+1 <= n_nodes then
+                                                neighbors <- List.append neighbors [my_id+1]
+                                        if (my_id-matrix_dim)>0 then
+                                            if my_id-matrix_dim <= n_nodes then
+                                                neighbors <- List.append neighbors [my_id-matrix_dim]
+                                        if (my_id+matrix_dim)<n_nodes then
+                                            if my_id+matrix_dim <= n_nodes then
+                                                neighbors <- List.append neighbors [my_id+matrix_dim]
+                                        if (my_id%matrix_dim)<>1 then
+                                            if my_id-1 <= n_nodes then
+                                                neighbors <- List.append neighbors [my_id-1]
+                                        neighbors <- List.filter (fun x -> x<>0) neighbors
+                                        
                                         if topology.Equals("imp2D", StringComparison.OrdinalIgnoreCase) then
-                                            let list2 = List.sort neighbors
-                                            let listn = [1 .. n_nodes]
-                                            nbrimp2D <- listn
-                                            let mutable k = 0
-                                            for k = 0 to list2.Length-1 do
-                                                nbrimp2D <- List.filter (fun x -> x<>list2.[k]) nbrimp2D
+                                             let list2 = List.sort neighbors
+                                             let mutable listn = [1 .. n_nodes]
+                                             let mutable k = 0
+                                             for k = 0 to list2.Length-1 do
+                                                 listn <- List.filter (fun x -> x<>list2.[k]) listn
+                                                 printf ""
+                                             k <- random.Next(listn.Length) 
+                                             neighbors <- List.append neighbors [listn.[k]]   
+    //neighbors <- List.filter (fun x -> x<>0) neighbors
     spawn system name <|fun mailbox ->
                             let rec loop()=
                                 actor{
@@ -227,7 +202,6 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
         let random = System.Random()
         let mutable index = random.Next(Actor.Length)
         stopWatch <- System.Diagnostics.Stopwatch.StartNew()
-        printfn "%f" stopWatch.Elapsed.TotalMilliseconds  
         let rec loop()=
             actor{
                 let! message = mailbox.Receive()
@@ -246,39 +220,14 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
             }
         loop()
  
-
-
-
-
-
-// if topology.Equals("2D") || topology.Equals("imp2D") then
-//     if isPerfect(matrix_dim|>float)=false then
-//     		matrix_dim <- matrix_dim+1
-//     		let mutable continueLooping = true
-//     		while continueLooping do
-//     			if isPerfect(matrix_dim|>float) then
-//     				continueLooping <- false
-//     			else
-//     				matrix_dim <- matrix_dim+1
-
-// 	matrix_dim <- (Math.Sqrt(matrix_dim|>float))|>int
-// 	let abc = Array2D.zeroCreate<int> matrix_dim matrix_dim
-// 	let mutable count = 1
-// 	for i = 0 to matrix_dim-1 do
-// 		for j = 0 to matrix_dim-1 do
-// 			if count <= n_nodes then
-// 				abc.[i,j] <- count
-// 				count <- count + 1
-// 	matrix <- abc
-  
-
 Master_Actor n_nodes |>ignore
 let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
 M_Actor.Tell(Start);
+
 while(flag) do 
     printf ""
 
-printfn "END REACHED:%f" stopWatch.Elapsed.TotalMilliseconds
+printfn "convergence time:%f" stopWatch.Elapsed.TotalMilliseconds
 
 
 
