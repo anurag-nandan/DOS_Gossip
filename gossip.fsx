@@ -161,10 +161,15 @@ let sub_actor system name=
                                                     s <- s/(2|>float32)
                                                     w <- w/(2|>float32)
                                                     previous <- currSumEstimate
-                                                    index <- random.Next(neighbors.Length)
-                                                    let str = "akka://MainActor/user/M_Actor/" + (neighbors.[index]|>string)
-                                                    let sel_Actor = system.ActorSelection(str)
-                                                    sel_Actor.Tell(Ratio (s, w))  
+                                                    if neighbors.Length = 0 then
+                                                        stop_transmit <- true
+                                                        let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
+                                                        M_Actor.Tell(Done my_id)
+                                                    else
+                                                        index <- random.Next(neighbors.Length)
+                                                        let str = "akka://MainActor/user/M_Actor/" + (neighbors.[index]|>string)
+                                                        let sel_Actor = system.ActorSelection(str)
+                                                        sel_Actor.Tell(Ratio (s, w))  
                                                 else
                                                    //terminate
                                                    stop_transmit <- true
@@ -223,10 +228,10 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
                         if x > 0.85 then
                             flag2 <- true
                      if topology.Equals("2D", StringComparison.OrdinalIgnoreCase) then
-                        if x > 0.80 then
+                        if x > 0.20 then
                             flag2 <- true
                      if topology.Equals("imp2D", StringComparison.OrdinalIgnoreCase) then
-                        if x > 0.80 then
+                        if x > 0.30 then
                             flag2 <- true
                      if thread_count = n_nodes-1 || flag2 then                        
                         flag <- false
