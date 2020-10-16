@@ -187,7 +187,10 @@ let sub_actor system name=
                                                 index <- random.Next(neighbors.Length)
                                                 let str = "akka://MainActor/user/M_Actor/" + (neighbors.[index]|>string)
                                                 let sel_Actor = system.ActorSelection(str)
-                                                sel_Actor.Tell(Rumor)
+                                                if algorithm.Equals("gossip", StringComparison.OrdinalIgnoreCase) then
+                                                    sel_Actor.Tell(Rumor)
+                                                else
+                                                    sel_Actor.Tell(Ratio (0|>float32,0|>float32))
                                             else if neighbors.Length = 0 then
                                                 let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
                                                 M_Actor.Tell(Done my_id)
