@@ -15,7 +15,7 @@ let mutable topology = fsi.CommandLineArgs.[2]
 let mutable n_nodes= fsi.CommandLineArgs.[1]|>int
 let mutable matrix_dim = n_nodes
 //let mutable matrix : int[,] = array2D [ [  ]; [ ] ]
-let mutable thread_count = 0
+
 
 
 let isPerfect (N:float) = 
@@ -206,6 +206,7 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
         let mutable act_list = []
         let random = System.Random()
         let mutable index = random.Next(Actor.Length)
+        let mutable thread_count = 0
         stopWatch <- System.Diagnostics.Stopwatch.StartNew()
         let rec loop()=
             actor{
@@ -221,18 +222,43 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
                      let x = (thread_count|>float)/(n_nodes|>float)
                      //printfn "t_count:%d" thread_count
                      act_list <- List.append act_list [id]
+                     let mutable listn = [1 .. n_nodes]
+                     let mutable k = 0
+                     for k = 0 to act_list.Length-1 do
+                         listn <- List.filter (fun x -> x<>act_list.[k]) listn
+                       
+                     let ind = random.Next(listn.Length)
+                     let vl = listn.[ind]
                      if topology.Equals("line", StringComparison.OrdinalIgnoreCase) then
                         if x > 0.40 then
                             flag2 <- true
+                        else if x < 0.40 then
+                            index <- random.Next(Actor.Length)
+                            if algorithm.Equals("gossip", StringComparison.OrdinalIgnoreCase) then
+                                    Actor.[vl].Tell(Rumor)
+                            else if algorithm.Equals("push-sum", StringComparison.OrdinalIgnoreCase) then                              
+                                    Actor.[vl].Tell(Ratio (0|>float32,0|>float32))
                      if topology.Equals("full", StringComparison.OrdinalIgnoreCase) then
                         if x > 0.85 then
                             flag2 <- true
                      if topology.Equals("2D", StringComparison.OrdinalIgnoreCase) then
-                        if x > 0.20 then
+                        if x > 0.40 then
                             flag2 <- true
+                        else if x < 0.40 then
+                            index <- random.Next(Actor.Length)
+                            if algorithm.Equals("gossip", StringComparison.OrdinalIgnoreCase) then
+                                    Actor.[vl].Tell(Rumor)
+                            else if algorithm.Equals("push-sum", StringComparison.OrdinalIgnoreCase) then                              
+                                    Actor.[vl].Tell(Ratio (0|>float32,0|>float32))
                      if topology.Equals("imp2D", StringComparison.OrdinalIgnoreCase) then
-                        if x > 0.30 then
+                        if x > 0.40 then
                             flag2 <- true
+                        else if x < 0.40 then
+                            index <- random.Next(Actor.Length)
+                            if algorithm.Equals("gossip", StringComparison.OrdinalIgnoreCase) then
+                                    Actor.[vl].Tell(Rumor)
+                            else if algorithm.Equals("push-sum", StringComparison.OrdinalIgnoreCase) then                              
+                                    Actor.[vl].Tell(Ratio (0|>float32,0|>float32))
                      if thread_count = n_nodes-1 || flag2 then                        
                         flag <- false
                 return! loop()
