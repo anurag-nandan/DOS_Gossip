@@ -48,7 +48,7 @@ let mutable flag = true
 let mutable flag2 = false
 let mutable stopWatch = System.Diagnostics.Stopwatch()
 type ActorMsg =
-    | Done
+    | Done of int
     | Start
 
 //enum for Sub Actor message
@@ -129,7 +129,7 @@ let sub_actor system name=
                                                     //printfn "ten:%d" my_id
                                                     mailbox.Sender().Tell(Terminate my_id)
                                                     let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
-                                                    M_Actor.Tell(Done)
+                                                    M_Actor.Tell(Done my_id)
                                                 else if rumor_count<10 then
                                                     //printfn "t:%d" my_id
                                                     if neighbors.Length > 0 then
@@ -139,9 +139,9 @@ let sub_actor system name=
                                                         sel_Actor.Tell(Rumor)     
                                                     else if neighbors.Length = 0 then
                                                         let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
-                                                        M_Actor.Tell(Done)
+                                                        M_Actor.Tell(Done my_id)
                                                         stop_transmit <- true   
-                                                        flag2 <- true                                                    
+                                                        //flag2 <- true                                                    
                                     |Ratio (a,b) -> 
                                             if stop_transmit then
                                                 mailbox.Sender().Tell(Terminate my_id)
@@ -170,7 +170,7 @@ let sub_actor system name=
                                                    stop_transmit <- true
                                                    mailbox.Sender().Tell(Terminate my_id)
                                                    let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
-                                                   M_Actor.Tell(Done)
+                                                   M_Actor.Tell(Done my_id)
                                     |Terminate item ->       
                                             //printfn ":%d" my_id
                                             //printfn "inside terminate"
@@ -185,11 +185,10 @@ let sub_actor system name=
                                                 sel_Actor.Tell(Rumor)
                                             else if neighbors.Length = 0 then
                                                 let M_Actor = system.ActorSelection("akka://MainActor/user/M_Actor")
-                                                M_Actor.Tell(Done)
+                                                M_Actor.Tell(Done my_id)
                                                 stop_transmit <- true
-                                                flag2 <- true
+                                                //flag2 <- true
                                     return! loop()
-
                                 }
                             loop()
 
@@ -199,6 +198,7 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
             [1..num_of_node]
             |> List.map(fun id-> sub_actor mailbox ((string(id)))) 
         
+        let mutable act_list = []
         let random = System.Random()
         let mutable index = random.Next(Actor.Length)
         stopWatch <- System.Diagnostics.Stopwatch.StartNew()
@@ -211,9 +211,23 @@ let Master_Actor num_of_node= spawn system "M_Actor" <| fun mailbox -> //Main Ac
                         Actor.[index].Tell(Rumor)
                     else if algorithm.Equals("push-sum", StringComparison.OrdinalIgnoreCase) then                              
                         Actor.[index].Tell(Ratio (0|>float32,0|>float32))
-                |Done -> 
+                |Done id-> 
                      thread_count <- thread_count + 1 
+                     let x = (thread_count|>float)/(n_nodes|>float)
                      //printfn "t_count:%d" thread_count
+                     act_list <- List.append act_list [id]
+                     if topology.Equals("line", StringComparison.OrdinalIgnoreCase) then
+                        if x > 0.40 then
+                            flag2 <- true
+                     if topology.Equals("full", StringComparison.OrdinalIgnoreCase) then
+                        if x > 0.85 then
+                            flag2 <- true
+                     if topology.Equals("2D", StringComparison.OrdinalIgnoreCase) then
+                        if x > 0.80 then
+                            flag2 <- true
+                     if topology.Equals("imp2D", StringComparison.OrdinalIgnoreCase) then
+                        if x > 0.80 then
+                            flag2 <- true
                      if thread_count = n_nodes-1 || flag2 then                        
                         flag <- false
                 return! loop()
